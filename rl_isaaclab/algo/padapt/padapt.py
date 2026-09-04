@@ -87,10 +87,11 @@ class ProprioAdapt(object):
         self.running_mean_std.eval()
         self.sa_mean_std.eval()
 
-    def test(self):
+    def test(self, max_steps=None):
         self.set_eval()
         obs_dict = self.env.reset()
-        while True:
+        steps = 0
+        while max_steps is None or steps < max_steps:
             input_dict = {
                 'obs': self.running_mean_std(obs_dict['obs']),
                 'proprio_hist': self.sa_mean_std(obs_dict['proprio_hist'].detach()),
@@ -98,6 +99,7 @@ class ProprioAdapt(object):
             mu = self.model.act_inference(input_dict)
             mu = torch.clamp(mu, -1.0, 1.0)
             obs_dict, r, done, info = self.env.step(mu)
+            steps += 1
 
     def train(self):
         _t = time.time()

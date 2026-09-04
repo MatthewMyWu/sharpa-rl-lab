@@ -20,6 +20,9 @@ parser.add_argument("--load_path", type=str, default=None, help="Checkpoint path
 parser.add_argument("--max_agent_steps", type=int, default=None, help="RL Policy training iterations.")
 parser.add_argument("--algorithm", type=str, default=None, help="Run training with multiple GPUs or nodes.")
 parser.add_argument("--resume", action="store_true", default=False, help="Resume training from checkpoint.")
+parser.add_argument("--video", action="store_true", help="Record a policy rollout as an MP4 video.")
+parser.add_argument("--video_length", type=int, default=300, help="Number of simulation steps to record.")
+parser.add_argument("--video_folder", type=str, default=None, help="Directory for recorded videos.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
@@ -85,8 +88,23 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
     log_dir = os.path.join(log_root_path, log_dir)
 
     # create isaac environment
-    env = gym.make(args_cli.task, cfg=env_cfg, render_mode=None)
-    env = GymStyleEnvWrapper(env, clip_actions=env_cfg.clip_actions)
+    render_mode = "rgb_array" if args_cli.video else None
+    env = gym.make(args_cli.task, cfg=env_cfg, render_mode=render_mode)
+    if args_cli.video:
+        video_folder = args_cli.video_folder or os.path.join(log_dir, "videos")
+        env = gym.wrappers.RecordVideo(
+            env,
+            video_folder=video_folder,
+            step_trigger=lambda step: step == 0,
+            video_length=args_cli.video_length,
+            disable_logger=True,
+        )
+        print(f"[INFO] Recording {args_cli.video_length} steps to: {video_folder}")
+    env = GymStyleEnvWrapper(
+        env,
+        clip_actions=env_cfg.clip_actions,
+        reset_on_init=not args_cli.video,
+    )
     agent = eval(agent_cfg["algo"])(env, output_dir=log_dir, full_config=config, create_output_dir=False)
     
     # load the checkpoint
@@ -94,7 +112,7 @@ def main(env_cfg: DirectRLEnvCfg, agent_cfg: dict):
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
     agent.restore_test(resume_path)
-    agent.test()
+    agent.test(max_steps=args_cli.video_length if args_cli.video else None)
 
     # close the simulator
     env.close()

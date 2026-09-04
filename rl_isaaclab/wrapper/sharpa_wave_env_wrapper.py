@@ -12,7 +12,7 @@ from rl_isaaclab.wrapper.vec_env import VecEnv
 
 class GymStyleEnvWrapper(VecEnv):
 
-    def __init__(self, env: ManagerBasedRLEnv | DirectRLEnv, clip_actions):
+    def __init__(self, env: ManagerBasedRLEnv | DirectRLEnv, clip_actions, reset_on_init=True):
         """Initializes the wrapper.
 
         Note:
@@ -66,7 +66,8 @@ class GymStyleEnvWrapper(VecEnv):
         self._modify_action_space()
 
         # reset at the start since the RSL-RL runner does not call reset
-        self.env.reset()
+        if reset_on_init:
+            self.env.reset()
 
     def __str__(self):
         """Returns the wrapper name and the :attr:`env` representation string."""

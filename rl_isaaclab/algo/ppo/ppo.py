@@ -226,10 +226,11 @@ class PPO(object):
         if self.normalize_input:
             self.running_mean_std.load_state_dict(checkpoint['running_mean_std'])
 
-    def test(self):
+    def test(self, max_steps=None):
         self.set_eval()
         obs_dict = self.env.reset()
-        while True:
+        steps = 0
+        while max_steps is None or steps < max_steps:
             input_dict = {
                 'obs': self.running_mean_std(obs_dict['obs']),
                 'priv_info': obs_dict['priv_info'],
@@ -237,6 +238,7 @@ class PPO(object):
             mu = self.model.act_inference(input_dict)
             mu = torch.clamp(mu, -1.0, 1.0)
             obs_dict, r, done, info = self.env.step(mu)
+            steps += 1
 
     def train_epoch(self):
         # collect minibatch data
